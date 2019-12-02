@@ -1,0 +1,19 @@
+test_metadata:
+  type: config
+  name: cluster
+  description: set some common ecs config
+
+cluster_name: ${EnvironmentName}-MyCluster
+
+ecs_agent_config:
+  ECS_ENGINE_TASK_CLEANUP_WAIT_DURATION: 10m
+  
+userdata: |
+  mkdir -p /opt/test
+  echo "done!"
+  
+security_group_rules:
+  -
+    from: 8080
+    ip: 10.0.0.0/16
+    desc: allow access from localhost to app
