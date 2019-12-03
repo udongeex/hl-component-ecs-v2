@@ -38,6 +38,7 @@ CfhighlanderTemplate do
           allowedValues: ['true','false']
       ComponentParam 'ScaleDown', 'true', 
           allowedValues: ['true','false']
+      ComponentParam 'ScalabilityIndex', '10'
           
     end
     

@@ -215,6 +215,11 @@ CloudFormation do
       Tags ecs_tags
     }
     
+    input = {
+      ecs_cluster_name: '${EcsCluster}',
+      scalability_index: '${ScalabilityIndex}'
+    }
+    
     Events_Rule(:EcsScalingEvent) {
       Condition(:ScalingEnabled)
       Description FnSub('Custom scaling meterics for ECS cluster ${EcsCluster}')
@@ -223,7 +228,8 @@ CloudFormation do
       Targets([
         {
           Arn: FnGetAtt(:EcsScalingFunction, :Arn),
-          Id: FnSub('EcsScalingEvent-${EcsCluster}')
+          Id: FnSub('EcsScalingEvent-${EcsCluster}'),
+          Input: FnSub(input.to_json)
         }
       ])
     }
