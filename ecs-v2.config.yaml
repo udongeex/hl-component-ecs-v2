@@ -1,5 +1,8 @@
 fargate_only_cluster: false
 
+ecs_agent_config:
+  ECS_AWSVPC_BLOCK_IMDS: true
+
 iam_policies:
   ecs-container-instance:
     action:
@@ -25,3 +28,56 @@ iam_policies:
       - elasticloadbalancing:Describe*
       - elasticloadbalancing:RegisterInstancesWithLoadBalancer
       - elasticloadbalancing:RegisterTargets
+
+dain_hook_iam_policies:
+  ec2:
+    action:
+      - ec2:DescribeInstances
+      - ec2:DescribeInstanceAttribute
+      - ec2:DescribeInstanceStatus
+      - ec2:DescribeHosts
+  autoscaling:
+    action: 
+      - autoscaling:CompleteLifecycleAction
+    resource: 
+      - Fn::Sub: aws:aws:autoscaling:${AWS::Region}:${AWS::AccountId}:autoScalingGroup:*:autoScalingGroupName/${AutoScaleGroup}
+  ecs1:
+    action:
+      - ecs:DescribeContainerInstances
+      - ecs:DescribeTasks
+  ecs2:
+    action:
+      - ecs:ListContainerInstances
+      - ecs:SubmitContainerStateChange
+      - ecs:SubmitTaskStateChange
+    resource: 
+      - Fn::GetAtt: [EcsCluster,Arn]
+  ecs3:
+    action:
+      - ecs:UpdateContainerInstancesState
+      - ecs:ListTasks
+    condition:
+      ArnEquals:
+        ecs:cluster:
+          Fn::GetAtt: [EcsCluster,Arn]
+          
+dain_hook_topic_iam_policies:
+  sns:
+    action: 
+      - sns:Publish
+    resource: 
+      - Ref: DrainECSHookTopic
+      
+ecs_scaling_iam_policies:
+  ecs1:
+    action:
+      - ecs:DescribeContainerInstances
+      - ecs:DescribeTasks
+  ecs2:
+    action:
+      - ecs:ListContainerInstances
+    resource: 
+      - Fn::GetAtt: [EcsCluster,Arn]
+  metrics:
+    action:
+      - cloudwatch:PutMetricData

@@ -25,7 +25,7 @@ CloudFormation do
   
   unless fargate_only_cluster
     
-    Condition(:SpotEnabled, FnNot(FnEquals(Ref(:Spot), 'true')))
+    Condition(:SpotEnabled, FnEquals(Ref(:Spot), 'true'))
     Condition(:KeyPairSet, FnNot(FnEquals(Ref(:KeyPair), '')))
     
     ip_blocks = {} unless defined? ip_blocks
@@ -55,6 +55,8 @@ CloudFormation do
     
     instance_userdata = <<~USERDATA
     #!/bin/bash
+    iptables --insert FORWARD 1 --in-interface docker+ --destination 169.254.169.254/32 --jump DROP
+    service iptables save
     echo ECS_CLUSTER=${EcsCluster} >> /etc/ecs/ecs.config
     USERDATA
     
@@ -103,11 +105,9 @@ CloudFormation do
     ecs_asg_tags = ecs_tags.map(&:clone)
 
     AutoScaling_AutoScalingGroup(:AutoScaleGroup) {
-      UpdatePolicy(:AutoScalingRollingUpdate, {
-        MaxBatchSize: Ref(:MaxBatchSize),
-        MinInstancesInService: Ref(:MinInstancesInService),
-        SuspendProcesses: %w(HealthCheck ReplaceUnhealthy AZRebalance AlarmNotification ScheduledActions)
-      })  
+      UpdatePolicy(:AutoScalingReplacingUpdate, {
+        WillReplace: true
+      })
       UpdatePolicy(:AutoScalingScheduledAction, {
         IgnoreUnmodifiedGroupSizeProperties: true
       })
@@ -125,6 +125,173 @@ CloudFormation do
     Output(:AutoScalingGroupName) {
       Value(Ref(:AutoScaleGroup))
       Export FnSub("${EnvironmentName}-#{component_name}-AutoScalingGroupName")
+    }
+        
+    IAM_Role(:DrainECSHookFunctionRole) {
+      Path '/'
+      AssumeRolePolicyDocument service_assume_role_policy('lambda')
+      Policies iam_role_policies(dain_hook_iam_policies)
+      Tags ecs_tags
+    }
+    
+    Lambda_Function(:DrainECSHookFunction) {
+      Handler 'index.lambda_handler'
+      Timeout '300'
+      Code({
+        ZipFile: File.read('lambdas/draining/app.py')
+      })
+      Role FnGetAtt(:DrainECSHookFunctionRole, :Arn)
+      Runtime 'python3.8'
+      Environment({
+        Variables: {
+          CLUSTER: Ref(:EcsCluster)
+        }
+      })
+      Tags ecs_tags
+    }
+    
+    Lambda_Permission(:DrainECSHookPermissions) {
+      Action 'lambda:InvokeFunction'
+      FunctionName FnGetAtt(:DrainECSHookFunction, :Arn)
+      Principal 'sns.amazonaws.com'
+      SourceArn Ref(:DrainECSHookTopic)
+    }
+    
+    SNS_Topic(:DrainECSHookTopic) {
+      Subscription([
+        {
+          Endpoint: FnGetAtt(:DrainECSHookFunction, :Arn),
+          Protocol: 'lambda'
+        }
+      ])
+      Tags ecs_tags
+    }
+        
+    IAM_Role(:DrainECSHookTopicRole) {
+      Path '/'
+      AssumeRolePolicyDocument service_assume_role_policy('lambda')
+      Policies iam_role_policies(dain_hook_topic_iam_policies)
+      Tags ecs_tags
+    }
+    
+    AutoScaling_LifecycleHook(:DrainECSHook) {
+      AutoScalingGroupName Ref(:AutoScaleGroup)
+      LifecycleTransition 'autoscaling:EC2_INSTANCE_TERMINATING'
+      DefaultResult 'CONTINUE'
+      HeartbeatTimeout '300'
+      NotificationTargetARN Ref(:DrainECSHookTopic)
+      RoleARN FnGetAtt(:DrainECSHookTopicRole, :Arn)
+    }
+    
+    Condition(:ScalingEnabled, FnEquals(Ref(:ScaleEcsInstances), 'true'))
+    
+    Condition(:ScalingDownEnabled, FnAnd([
+      Condition(:ScalingEnabled),
+      FnEquals(Ref(:ScaleEcsInstances), 'true')
+    ]))
+    
+    IAM_Role(:EcsScalingFunctionRole) {
+      Condition(:ScalingEnabled)
+      Path '/'
+      AssumeRolePolicyDocument service_assume_role_policy('lambda')
+      Policies iam_role_policies(ecs_scaling_iam_policies)
+      Tags ecs_tags
+    }
+    
+    Lambda_Function(:EcsScalingFunction) {
+      Condition(:ScalingEnabled)
+      Handler 'index.lambda_handler'
+      Timeout '300'
+      Code({
+        ZipFile: File.read('lambdas/scaling/app.py')
+      })
+      Role FnGetAtt(:DrainECSHookFunctionRole, :Arn)
+      Runtime 'python3.8'
+      Environment({
+        Variables: {
+          CLUSTER: Ref(:EcsCluster)
+        }
+      })
+      Tags ecs_tags
+    }
+    
+    Events_Rule(:EcsScalingEvent) {
+      Condition(:ScalingEnabled)
+      Description FnSub('Custom scaling meterics for ECS cluster ${EcsCluster}')
+      ScheduleExpression 'rate(1 minute)'
+      State 'ENABLED'
+      Targets([
+        {
+          Arn: FnGetAtt(:EcsScalingFunction, :Arn),
+          Id: FnSub('EcsScalingEvent-${EcsCluster}')
+        }
+      ])
+    }
+    
+    Lambda_Permission(:EcsScalingPermissions) {
+      Condition(:ScalingEnabled)
+      Action 'lambda:InvokeFunction'
+      FunctionName FnGetAtt(:EcsScalingFunction, :Arn)
+      Principal 'events.amazonaws.com'
+      SourceArn FnGetAtt(:EcsScalingEvent, :Arn)
+    }
+        
+    AutoScaling_ScalingPolicy(:EcsClusterScaleOutPolicy) {
+      Condition(:ScalingEnabled)
+      AdjustmentType 'ChangeInCapacity'
+      AutoScalingGroupName Ref(:AutoScaleGroup)
+      Cooldown '120'
+      ScalingAdjustment '1'
+    }
+    
+    CloudWatch_Alarm(:EcsClusterScaleOutAlarm) {
+      Condition(:ScalingEnabled)
+      ActionsEnabled true
+      AlarmActions Ref(:EcsClusterScaleOutPolicy)
+      ComparisonOperator 'GreaterThanOrEqualToThreshold'
+      Dimensions([
+        {
+          Name: 'ClusterName',
+          Value: Ref(:EcsCluster)
+        }
+      ])
+      EvaluationPeriods '1'
+      MetricName 'RequiresScaling'
+      Namespace 'AWS/ECS'
+      Period '60'
+      Statistic 'Maximum'
+      Threshold '1'
+      TreatMissingData 'notBreaching'
+      Unit 'None'
+    }
+    
+    AutoScaling_ScalingPolicy(:EcsClusterScaleInPolicy) {
+      Condition(:ScalingDownEnabled)
+      AdjustmentType 'ChangeInCapacity'
+      AutoScalingGroupName Ref(:AutoScaleGroup)
+      Cooldown '300'
+      ScalingAdjustment '-1'
+    }
+    
+    CloudWatch_Alarm(:EcsClusterScaleInAlarm) {
+      Condition(:ScalingDownEnabled)
+      ActionsEnabled true
+      AlarmActions Ref(:EcsClusterScaleInPolicy)
+      ComparisonOperator 'LessThanOrEqualToThreshold'
+      Dimensions([
+        {
+          Name: 'ClusterName',
+          Value: Ref(:EcsCluster)
+        }
+      ])
+      EvaluationPeriods '5'
+      MetricName 'RequiresScaling'
+      Namespace 'AWS/ECS'
+      Period '60'
+      Statistic 'Maximum'
+      Threshold '-1'
+      TreatMissingData 'notBreaching'
+      Unit 'None'
     }
     
   end

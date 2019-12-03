@@ -1,0 +1,6 @@
+test_metadata:
+  type: config
+  name: fargate
+  description: create a fargate only cluster
+
+fargate_only_cluster: true

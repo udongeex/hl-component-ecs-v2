@@ -6,6 +6,8 @@ test_metadata:
 cluster_name: ${EnvironmentName}-MyCluster
 
 ecs_agent_config:
+  ECS_AWSVPC_BLOCK_IMDS: true
+  ECS_ENABLE_SPOT_INSTANCE_DRAINING: true
   ECS_ENGINE_TASK_CLEANUP_WAIT_DURATION: 10m
   
 userdata: |

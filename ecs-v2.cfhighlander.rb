@@ -16,23 +16,31 @@ CfhighlanderTemplate do
     ComponentParam 'ContainerInsights', 'disabled', 
         allowedValues: ['enabled','disabled']
     
-    ComponentParam 'KeyPair'
+    unless fargate_only_cluster
+      
+      ComponentParam 'KeyPair'
+      
+      ComponentParam 'Ami', '/aws/service/ecs/optimized-ami/amazon-linux-2/recommended/image_id', 
+          type: 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
+      
+      ComponentParam 'InstanceType', 't3.small'
+      
+      ComponentParam 'Spot', 'false', 
+          allowedValues: ['true','false']
+      
+      ComponentParam 'Subnets', type: 'CommaDelimitedList'
+      
+      ComponentParam 'AsgDesired', '1'
+      ComponentParam 'AsgMin', '1'
+      ComponentParam 'AsgMax', '2'
+      
+      ComponentParam 'ScaleEcsInstances', 'false', 
+          allowedValues: ['true','false']
+      ComponentParam 'ScaleDown', 'true', 
+          allowedValues: ['true','false']
+          
+    end
     
-    ComponentParam 'Ami', '/aws/service/ecs/optimized-ami/amazon-linux-2/recommended/image_id', 
-        type: 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
-    
-    ComponentParam 'InstanceType', 't3.small'
-    
-    ComponentParam 'Spot', 'false', 
-        allowedValues: ['true','false']
-    
-    ComponentParam 'Subnets', type: 'CommaDelimitedList'
-    
-    ComponentParam 'AsgDesired', '1'
-    ComponentParam 'AsgMin', '1'
-    ComponentParam 'AsgMax', '2'
-    ComponentParam 'MaxBatchSize', '1'
-    ComponentParam 'MinInstancesInService', '1'
   end
 
 end
