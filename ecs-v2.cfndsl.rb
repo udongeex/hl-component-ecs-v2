@@ -7,9 +7,7 @@ CloudFormation do
   
   ECS_Cluster(:EcsCluster) {
     ClusterName FnSub(cluster_name) if defined? cluster_name
-    ClusterSetting([
-        { Name: 'containerInsights', Value: Ref(:ContainerInsights) }
-    ])
+    ClusterSetting({ Name: 'containerInsights', Value: Ref(:ContainerInsights) })
     Tags ecs_tags
   }
   
