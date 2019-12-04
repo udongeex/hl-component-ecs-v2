@@ -32,14 +32,7 @@ CfhighlanderTemplate do
       
       ComponentParam 'AsgDesired', '1'
       ComponentParam 'AsgMin', '1'
-      ComponentParam 'AsgMax', '2'
-      
-      ComponentParam 'ScaleEcsInstances', 'false', 
-          allowedValues: ['true','false']
-      ComponentParam 'ScaleDown', 'true', 
-          allowedValues: ['true','false']
-      ComponentParam 'ScalabilityIndex', '10'
-          
+      ComponentParam 'AsgMax', '2'  
     end
     
   end

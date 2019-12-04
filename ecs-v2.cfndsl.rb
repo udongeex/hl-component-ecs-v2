@@ -138,7 +138,77 @@ CloudFormation do
       Handler 'index.lambda_handler'
       Timeout '300'
       Code({
-        ZipFile: File.read('lambdas/draining/app.py')
+        ZipFile: <<~LAMBDA
+        import boto3, json, os, time
+
+        ecs = boto3.client('ecs')
+        autoscaling = boto3.client('autoscaling')
+
+        def lambda_handler(event, context):
+            print(json.dumps(event))
+            cluster = os.environ['CLUSTER']
+            snsTopicArn = event['Records'][0]['Sns']['TopicArn']
+            lifecycle_event = json.loads(event['Records'][0]['Sns']['Message'])
+            instance_id = lifecycle_event.get('EC2InstanceId')
+            if not instance_id:
+                print('Got event without EC2InstanceId: %s', json.dumps(event))
+                return
+
+            instance_arn = container_instance_arn(cluster, instance_id)
+            print('Instance %s has container instance ARN %s' % (lifecycle_event['EC2InstanceId'], instance_arn))
+
+            if not instance_arn:
+                return
+
+            while has_tasks(cluster, instance_arn):
+                time.sleep(10)
+
+            try:
+                print('Terminating instance %s' % instance_id)
+                autoscaling.complete_lifecycle_action(
+                    LifecycleActionResult='CONTINUE',
+                    **pick(lifecycle_event, 'LifecycleHookName', 'LifecycleActionToken', 'AutoScalingGroupName'))
+            except Exception as e:
+                # Lifecycle action may have already completed.
+                print(str(e))
+
+
+        def container_instance_arn(cluster, instance_id):
+            """Turn an instance ID into a container instance ARN."""
+            arns = ecs.list_container_instances(cluster=cluster, filter='ec2InstanceId==' + instance_id)['containerInstanceArns']
+            if not arns:
+                return None
+            return arns[0]
+
+
+        def has_tasks(cluster, instance_arn):
+            """Return True if the instance is running tasks for the given cluster."""
+            instances = ecs.describe_container_instances(cluster=cluster, containerInstances=[instance_arn])['containerInstances']
+            if not instances:
+                return False
+            instance = instances[0]
+
+            if instance['status'] == 'ACTIVE':
+                # Start draining, then try again later
+                set_container_instance_to_draining(cluster, instance_arn)
+                return True
+
+            tasks = instance['runningTasksCount'] + instance['pendingTasksCount']
+            print('Instance %s has %s tasks' % (instance_arn, tasks))
+
+            return tasks > 0
+
+
+        def set_container_instance_to_draining(cluster, instance_arn):
+            ecs.update_container_instances_state(
+                cluster=cluster,
+                containerInstances=[instance_arn], status='DRAINING')
+
+
+        def pick(dct, *keys):
+            """Pick a subset of a dict."""
+            return {k: v for k, v in dct.items() if k in keys}
+        LAMBDA
       })
       Role FnGetAtt(:DrainECSHookFunctionRole, :Arn)
       Runtime 'python3.8'
@@ -181,123 +251,6 @@ CloudFormation do
       HeartbeatTimeout '300'
       NotificationTargetARN Ref(:DrainECSHookTopic)
       RoleARN FnGetAtt(:DrainECSHookTopicRole, :Arn)
-    }
-    
-    Condition(:ScalingEnabled, FnEquals(Ref(:ScaleEcsInstances), 'true'))
-    
-    Condition(:ScalingDownEnabled, FnAnd([
-      Condition(:ScalingEnabled),
-      FnEquals(Ref(:ScaleEcsInstances), 'true')
-    ]))
-    
-    IAM_Role(:EcsScalingFunctionRole) {
-      Condition(:ScalingEnabled)
-      Path '/'
-      AssumeRolePolicyDocument service_assume_role_policy('lambda')
-      Policies iam_role_policies(ecs_scaling_iam_policies)
-      Tags ecs_tags
-    }
-    
-    Lambda_Function(:EcsScalingFunction) {
-      Condition(:ScalingEnabled)
-      Handler 'index.lambda_handler'
-      Timeout '300'
-      Code({
-        ZipFile: File.read('lambdas/scaling/app.py')
-      })
-      Role FnGetAtt(:DrainECSHookFunctionRole, :Arn)
-      Runtime 'python3.8'
-      Environment({
-        Variables: {
-          CLUSTER: Ref(:EcsCluster)
-        }
-      })
-      Tags ecs_tags
-    }
-    
-    input = {
-      ecs_cluster_name: '${EcsCluster}',
-      scalability_index: '${ScalabilityIndex}'
-    }
-    
-    Events_Rule(:EcsScalingEvent) {
-      Condition(:ScalingEnabled)
-      Description FnSub('Custom scaling meterics for ECS cluster ${EcsCluster}')
-      ScheduleExpression 'rate(1 minute)'
-      State 'ENABLED'
-      Targets([
-        {
-          Arn: FnGetAtt(:EcsScalingFunction, :Arn),
-          Id: FnSub('EcsScalingEvent-${EcsCluster}'),
-          Input: FnSub(input.to_json)
-        }
-      ])
-    }
-    
-    Lambda_Permission(:EcsScalingPermissions) {
-      Condition(:ScalingEnabled)
-      Action 'lambda:InvokeFunction'
-      FunctionName FnGetAtt(:EcsScalingFunction, :Arn)
-      Principal 'events.amazonaws.com'
-      SourceArn FnGetAtt(:EcsScalingEvent, :Arn)
-    }
-        
-    AutoScaling_ScalingPolicy(:EcsClusterScaleOutPolicy) {
-      Condition(:ScalingEnabled)
-      AdjustmentType 'ChangeInCapacity'
-      AutoScalingGroupName Ref(:AutoScaleGroup)
-      Cooldown '120'
-      ScalingAdjustment '1'
-    }
-    
-    CloudWatch_Alarm(:EcsClusterScaleOutAlarm) {
-      Condition(:ScalingEnabled)
-      ActionsEnabled true
-      AlarmActions Ref(:EcsClusterScaleOutPolicy)
-      ComparisonOperator 'GreaterThanOrEqualToThreshold'
-      Dimensions([
-        {
-          Name: 'ClusterName',
-          Value: Ref(:EcsCluster)
-        }
-      ])
-      EvaluationPeriods '1'
-      MetricName 'RequiresScaling'
-      Namespace 'AWS/ECS'
-      Period '60'
-      Statistic 'Maximum'
-      Threshold '1'
-      TreatMissingData 'notBreaching'
-      Unit 'None'
-    }
-    
-    AutoScaling_ScalingPolicy(:EcsClusterScaleInPolicy) {
-      Condition(:ScalingDownEnabled)
-      AdjustmentType 'ChangeInCapacity'
-      AutoScalingGroupName Ref(:AutoScaleGroup)
-      Cooldown '300'
-      ScalingAdjustment '-1'
-    }
-    
-    CloudWatch_Alarm(:EcsClusterScaleInAlarm) {
-      Condition(:ScalingDownEnabled)
-      ActionsEnabled true
-      AlarmActions Ref(:EcsClusterScaleInPolicy)
-      ComparisonOperator 'LessThanOrEqualToThreshold'
-      Dimensions([
-        {
-          Name: 'ClusterName',
-          Value: Ref(:EcsCluster)
-        }
-      ])
-      EvaluationPeriods '5'
-      MetricName 'RequiresScaling'
-      Namespace 'AWS/ECS'
-      Period '60'
-      Statistic 'Maximum'
-      Threshold '-1'
-      TreatMissingData 'notBreaching'
-      Unit 'None'
     }
     
   end
