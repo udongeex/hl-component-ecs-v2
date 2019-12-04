@@ -237,7 +237,7 @@ CloudFormation do
         
     IAM_Role(:DrainECSHookTopicRole) {
       Path '/'
-      AssumeRolePolicyDocument service_assume_role_policy('lambda')
+      AssumeRolePolicyDocument service_assume_role_policy('autoscaling')
       Policies iam_role_policies(dain_hook_topic_iam_policies)
       Tags ecs_tags
     }
