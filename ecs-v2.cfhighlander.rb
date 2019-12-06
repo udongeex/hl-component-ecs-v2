@@ -2,8 +2,8 @@ CfhighlanderTemplate do
   Name 'ecs-v2'
   Description "ecs-v2 - #{component_version}"
 
-  DependsOn 'lib-iam'
-  DependsOn 'lib-ec2'
+  DependsOn 'lib-iam@0.1.0'
+  DependsOn 'lib-ec2@0.1.0'
 
   Parameters do
     ComponentParam 'EnvironmentName', 'dev', isGlobal: true
