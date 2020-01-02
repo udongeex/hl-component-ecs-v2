@@ -2,9 +2,11 @@ language: ruby
 rvm:
   - 2.5
 install:
-  - gem install cfhighlander cfn-nag
+  - gem install cfhighlander cfn-nag rspec
+  - pip install cfn-lint
 before_script:
   - cfndsl -u
 script:
-  - if [ "${TRAVIS_PULL_REQUEST}" != "false" ]; then cfhighlander cftest --no-validate; else cfhighlander cftest; fi
+  - rspec
   - cfn_nag_scan -i out/tests
+  - cfn-lint out/tests/**/*.yaml -i W1020
