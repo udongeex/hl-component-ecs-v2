@@ -1,38 +1,43 @@
 CloudFormation do
   
   ecs_tags = []
-  ecs_tags << { Key: 'Name', Value: FnSub("${EnvironmentName}-#{component_name}") }
+  ecs_tags << { Key: 'Name', Value: FnSub("${EnvironmentName}-#{external_parameters[:component_name]}") }
   ecs_tags << { Key: 'EnvironmentName', Value: Ref(:EnvironmentName) }
   ecs_tags << { Key: 'EnvironmentType', Value: Ref(:EnvironmentType) }
   
+  cluster_name = external_parameters.fetch(:cluster_name, '')
+  
   ECS_Cluster(:EcsCluster) {
-    ClusterName FnSub(cluster_name) if defined? cluster_name
+    ClusterName FnSub(cluster_name) unless cluster_name.empty?
     ClusterSetting({ Name: 'containerInsights', Value: Ref(:ContainerInsights) })
     Tags ecs_tags
   }
   
   Output(:EcsCluster) {
     Value(Ref(:EcsCluster))
-    Export FnSub("${EnvironmentName}-#{component_name}-EcsCluster")
+    Export FnSub("${EnvironmentName}-#{external_parameters[:component_name]}-EcsCluster")
   }
   
   Output(:EcsClusterArn) {
     Value(FnGetAtt('EcsCluster','Arn'))
-    Export FnSub("${EnvironmentName}-#{component_name}-EcsClusterArn")
+    Export FnSub("${EnvironmentName}-#{external_parameters[:component_name]}-EcsClusterArn")
   }
+  
+  fargate_only_cluster = external_parameters.fetch(:fargate_only_cluster, false)
   
   unless fargate_only_cluster
     
     Condition(:SpotEnabled, FnEquals(Ref(:Spot), 'true'))
     Condition(:KeyPairSet, FnNot(FnEquals(Ref(:KeyPair), '')))
     
-    ip_blocks = {} unless defined? ip_blocks
+    ip_blocks = external_parameters.fetch(:ip_blocks, {})
+    security_group_rules = external_parameters.fetch(:security_group_rules, [])
     
     EC2_SecurityGroup(:SecurityGroupEcs) {
       VpcId Ref(:VPCId)
-      GroupDescription FnSub("${EnvironmentName}-#{component_name}")
+      GroupDescription FnSub("${EnvironmentName}-#{external_parameters[:component_name]}")
       
-      if defined? security_group_rules
+      if security_group_rules.any?
         SecurityGroupIngress generate_security_group_rules(security_group_rules,ip_blocks)
       end
       
@@ -42,7 +47,7 @@ CloudFormation do
     IAM_Role(:Role) {
       Path '/'
       AssumeRolePolicyDocument service_assume_role_policy('ec2')
-      Policies iam_role_policies(iam_policies)
+      Policies iam_role_policies(external_parameters[:iam_policies])
       Tags ecs_tags
     }
     
@@ -58,18 +63,18 @@ CloudFormation do
     echo ECS_CLUSTER=${EcsCluster} >> /etc/ecs/ecs.config
     USERDATA
     
-    if defined? ecs_agent_config
-      instance_userdata += ecs_agent_config.map { |k,v| "echo #{k}=#{v} >> /etc/ecs/ecs.config" }.join('\n')
-    end
+    ecs_agent_config = external_parameters.fetch(:ecs_agent_config, {})
+    instance_userdata += ecs_agent_config.map { |k,v| "echo #{k}=#{v} >> /etc/ecs/ecs.config" }.join('\n')
     
-    if defined? userdata
-      instance_userdata += userdata
-    end
+    userdata = external_parameters.fetch(:userdata, '')
+    instance_userdata += userdata
     
     ecs_instance_tags = ecs_tags.map(&:clone)
     ecs_instance_tags.push({ Key: 'Role', Value: 'ecs' })
     ecs_instance_tags.push({ Key: 'Name', Value: FnSub("${EnvironmentName}-ecs-xx") })
-    ecs_instance_tags.push(*instance_tags.map {|k,v| {Key: k, Value: FnSub(v)}}) if defined? instance_tags
+    
+    instance_tags = external_parameters.fetch(:instance_tags, {})
+    ecs_instance_tags.push(*instance_tags.map {|k,v| {Key: k, Value: FnSub(v)}})
     
     template_data = {
         SecurityGroupIds: [ Ref(:SecurityGroupEcs) ],
@@ -92,7 +97,8 @@ CloudFormation do
     }
     template_data[:InstanceMarketOptions] = FnIf(:SpotEnabled, spot_options, Ref('AWS::NoValue'))
 
-    if defined? volumes
+    volumes = external_parameters.fetch(:volumes, {})
+    if volumes.any?
       template_data[:BlockDeviceMappings] = volumes
     end
     
@@ -122,19 +128,19 @@ CloudFormation do
     
     Output(:AutoScalingGroupName) {
       Value(Ref(:AutoScaleGroup))
-      Export FnSub("${EnvironmentName}-#{component_name}-AutoScalingGroupName")
+      Export FnSub("${EnvironmentName}-#{external_parameters[:component_name]}-AutoScalingGroupName")
     }
         
     IAM_Role(:DrainECSHookFunctionRole) {
       Path '/'
       AssumeRolePolicyDocument service_assume_role_policy('lambda')
-      Policies iam_role_policies(dain_hook_iam_policies)
+      Policies iam_role_policies(external_parameters[:dain_hook_iam_policies])
       Tags ecs_tags
     }
     
     Lambda_Function(:DrainECSHookFunction) {
       Handler 'index.lambda_handler'
-      Timeout '300'
+      Timeout 300
       Code({
         ZipFile: <<~LAMBDA
         import boto3, json, os, time
@@ -238,7 +244,7 @@ CloudFormation do
     IAM_Role(:DrainECSHookTopicRole) {
       Path '/'
       AssumeRolePolicyDocument service_assume_role_policy('autoscaling')
-      Policies iam_role_policies(dain_hook_topic_iam_policies)
+      Policies iam_role_policies(external_parameters[:dain_hook_topic_iam_policies])
       Tags ecs_tags
     }
     
@@ -246,7 +252,7 @@ CloudFormation do
       AutoScalingGroupName Ref(:AutoScaleGroup)
       LifecycleTransition 'autoscaling:EC2_INSTANCE_TERMINATING'
       DefaultResult 'CONTINUE'
-      HeartbeatTimeout '300'
+      HeartbeatTimeout 300
       NotificationTargetARN Ref(:DrainECSHookTopic)
       RoleARN FnGetAtt(:DrainECSHookTopicRole, :Arn)
     }
