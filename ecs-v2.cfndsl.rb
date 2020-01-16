@@ -2,7 +2,7 @@ CloudFormation do
   
   ecs_tags = []
   ecs_tags << { Key: 'Name', Value: FnSub("${EnvironmentName}-#{external_parameters[:component_name]}") }
-  ecs_tags << { Key: 'EnvironmentName', Value: Ref(:EnvironmentName) }
+  ecs_tags << { Key: 'Environment', Value: Ref(:EnvironmentName) }
   ecs_tags << { Key: 'EnvironmentType', Value: Ref(:EnvironmentType) }
   
   cluster_name = external_parameters.fetch(:cluster_name, '')
