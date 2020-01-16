@@ -1,22 +1,5 @@
 # ecs-v2 CfHighlander component
 
-## Cfhighlander Setup
+[![Build Status](https://travis-ci.com/theonestack/hl-component-ecs-v2.svg?branch=master)](https://travis-ci.com/theonestack/hl-component-ecs-v2)
 
-install cfhighlander [gem](https://github.com/theonestack/cfhighlander)
 
-```bash
-gem install cfhighlander
-```
-
-or via docker
-
-```bash
-docker pull theonestack/cfhighlander
-```
-## Testing Components
-
-Running the tests
-
-```bash
-cfhighlander cftest ecs-v2
-```
