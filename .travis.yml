@@ -3,7 +3,7 @@ rvm:
   - 2.5
 install:
   - gem install cfhighlander cfn-nag rspec
-  - pip install cfn-lint
+  - pip install --user cfn-lint
 before_script:
   - cfndsl -u
 script:
