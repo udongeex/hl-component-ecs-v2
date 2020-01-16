@@ -21,7 +21,7 @@ describe 'compiled component' do
     it 'has property Tags' do
       expect(properties["Tags"]).to eq([
         {"Key"=>"Name", "Value"=>{"Fn::Sub"=>"${EnvironmentName}-ecs-v2"}}, 
-        {"Key"=>"EnvironmentName", "Value"=>{"Ref"=>"EnvironmentName"}}, 
+        {"Key"=>"Environment", "Value"=>{"Ref"=>"EnvironmentName"}}, 
         {"Key"=>"EnvironmentType", "Value"=>{"Ref"=>"EnvironmentType"}}])
     end
 
@@ -43,7 +43,7 @@ describe 'compiled component' do
     it 'has property Tags' do
       expect(properties["Tags"]).to eq([
         {"Key"=>"Name", "Value"=>{"Fn::Sub"=>"${EnvironmentName}-ecs-v2"}}, 
-        {"Key"=>"EnvironmentName", "Value"=>{"Ref"=>"EnvironmentName"}}, 
+        {"Key"=>"Environment", "Value"=>{"Ref"=>"EnvironmentName"}}, 
         {"Key"=>"EnvironmentType", "Value"=>{"Ref"=>"EnvironmentType"}}])
     end
 
@@ -68,7 +68,7 @@ describe 'compiled component' do
     it 'has property Tags' do
       expect(properties["Tags"]).to eq([
         {"Key"=>"Name", "Value"=>{"Fn::Sub"=>"${EnvironmentName}-ecs-v2"}}, 
-        {"Key"=>"EnvironmentName", "Value"=>{"Ref"=>"EnvironmentName"}}, 
+        {"Key"=>"Environment", "Value"=>{"Ref"=>"EnvironmentName"}}, 
         {"Key"=>"EnvironmentType", "Value"=>{"Ref"=>"EnvironmentType"}}])
     end
 
@@ -126,7 +126,7 @@ describe 'compiled component' do
     it 'has property Tags' do
       expect(properties["Tags"]).to eq([
         {"Key"=>"Name", "Value"=>{"Fn::Sub"=>"${EnvironmentName}-ecs-v2"}, "PropagateAtLaunch"=>false}, 
-        {"Key"=>"EnvironmentName", "Value"=>{"Ref"=>"EnvironmentName"}, "PropagateAtLaunch"=>false}, 
+        {"Key"=>"Environment", "Value"=>{"Ref"=>"EnvironmentName"}, "PropagateAtLaunch"=>false}, 
         {"Key"=>"EnvironmentType", "Value"=>{"Ref"=>"EnvironmentType"}, "PropagateAtLaunch"=>false}])
     end
 
@@ -149,7 +149,7 @@ describe 'compiled component' do
     end
 
     it 'has property Tags' do
-      expect(properties["Tags"]).to eq([{"Key"=>"Name", "Value"=>{"Fn::Sub"=>"${EnvironmentName}-ecs-v2"}}, {"Key"=>"EnvironmentName", "Value"=>{"Ref"=>"EnvironmentName"}}, {"Key"=>"EnvironmentType", "Value"=>{"Ref"=>"EnvironmentType"}}])
+      expect(properties["Tags"]).to eq([{"Key"=>"Name", "Value"=>{"Fn::Sub"=>"${EnvironmentName}-ecs-v2"}}, {"Key"=>"Environment", "Value"=>{"Ref"=>"EnvironmentName"}}, {"Key"=>"EnvironmentType", "Value"=>{"Ref"=>"EnvironmentType"}}])
     end
 
   end
@@ -185,7 +185,7 @@ describe 'compiled component' do
     it 'has property Tags' do
       expect(properties["Tags"]).to eq([
         {"Key"=>"Name", "Value"=>{"Fn::Sub"=>"${EnvironmentName}-ecs-v2"}}, 
-        {"Key"=>"EnvironmentName", "Value"=>{"Ref"=>"EnvironmentName"}}, 
+        {"Key"=>"Environment", "Value"=>{"Ref"=>"EnvironmentName"}}, 
         {"Key"=>"EnvironmentType", "Value"=>{"Ref"=>"EnvironmentType"}}])
     end
 
@@ -224,7 +224,7 @@ describe 'compiled component' do
     it 'has property Tags' do
       expect(properties["Tags"]).to eq([
         {"Key"=>"Name", "Value"=>{"Fn::Sub"=>"${EnvironmentName}-ecs-v2"}}, 
-        {"Key"=>"EnvironmentName", "Value"=>{"Ref"=>"EnvironmentName"}}, 
+        {"Key"=>"Environment", "Value"=>{"Ref"=>"EnvironmentName"}}, 
         {"Key"=>"EnvironmentType", "Value"=>{"Ref"=>"EnvironmentType"}}])
     end
 
@@ -249,7 +249,7 @@ describe 'compiled component' do
     it 'has property Tags' do
       expect(properties["Tags"]).to eq([
         {"Key"=>"Name", "Value"=>{"Fn::Sub"=>"${EnvironmentName}-ecs-v2"}}, 
-        {"Key"=>"EnvironmentName", "Value"=>{"Ref"=>"EnvironmentName"}}, 
+        {"Key"=>"Environment", "Value"=>{"Ref"=>"EnvironmentName"}}, 
         {"Key"=>"EnvironmentType", "Value"=>{"Ref"=>"EnvironmentType"}}])
     end
 
