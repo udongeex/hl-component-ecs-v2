@@ -67,7 +67,7 @@ CloudFormation do
     instance_userdata += ecs_agent_config.map { |k,v| "echo #{k}=#{v} >> /etc/ecs/ecs.config" }.join('\n')
     
     userdata = external_parameters.fetch(:userdata, '')
-    instance_userdata += userdata
+    instance_userdata += "\n#{userdata}"
     
     ecs_instance_tags = ecs_tags.map(&:clone)
     ecs_instance_tags.push({ Key: 'Role', Value: 'ecs' })

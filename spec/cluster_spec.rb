@@ -36,14 +36,14 @@ describe 'compiled component' do
     let(:userdata) { properties["LaunchTemplateData"]["UserData"]["Fn::Base64"]["Fn::Sub"] }
     
     it 'includes ecs_agent_config in the userdata' do
-      expect(userdata).to include("ECS_AWSVPC_BLOCK_IMDS=true >> /etc/ecs/ecs.config")
-      expect(userdata).to include("ECS_ENABLE_SPOT_INSTANCE_DRAINING=true >> /etc/ecs/ecs.config")
-      expect(userdata).to include("ECS_ENGINE_TASK_CLEANUP_WAIT_DURATION=10m >> /etc/ecs/ecs.config")
+      expect(userdata).to include("echo ECS_AWSVPC_BLOCK_IMDS=true >> /etc/ecs/ecs.config")
+      expect(userdata).to include("echo ECS_ENABLE_SPOT_INSTANCE_DRAINING=true >> /etc/ecs/ecs.config")
+      expect(userdata).to include("echo ECS_ENGINE_TASK_CLEANUP_WAIT_DURATION=10m >> /etc/ecs/ecs.config")
     end
     
     it 'includes custom userdata config in the userdata' do
-      expect(userdata).to include("mkdir -p /opt/test")
-      expect(userdata).to include("echo \"done!\"")
+      expect(userdata).to include("\nmkdir -p /opt/test")
+      expect(userdata).to include("\necho \"done!\"")
     end
 
   end
