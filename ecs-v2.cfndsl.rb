@@ -43,6 +43,11 @@ CloudFormation do
       
       Tags ecs_tags
     }
+
+    Output(:EcsSecurityGroup) {
+      Value(Ref('SecurityGroupEcs'))
+      Export FnSub("${EnvironmentName}-#{external_parameters[:component_name]}-EcsSecurityGroup")
+    }
   
     IAM_Role(:Role) {
       Path '/'
