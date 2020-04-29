@@ -20,8 +20,7 @@ CfhighlanderTemplate do
       
       ComponentParam 'KeyPair'
       
-      ComponentParam 'Ami', '/aws/service/ecs/optimized-ami/amazon-linux-2/recommended/image_id', 
-          type: 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
+      ComponentParam 'Ami'
       
       ComponentParam 'InstanceType', 't3.small'
       
