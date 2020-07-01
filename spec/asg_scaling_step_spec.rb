@@ -21,11 +21,11 @@ describe 'compiled component' do
     let(:properties) { resource['Properties'] }
 
     it 'has property MetricName' do
-      expect(properties['MetricName']).to eq('CPUReservation')
+      expect(properties['MetricName']).to eq('CPUUtilization')
     end
 
     it 'has property Namespace' do
-      expect(properties['Namespace']).to eq('AWS/EC2')
+      expect(properties['Namespace']).to eq('AWS/ECS')
     end
 
     it 'has property Statistic' do
@@ -49,7 +49,7 @@ describe 'compiled component' do
     end
 
     it 'has property Dimensions' do
-      expect(properties['Dimensions']).to eq([{"Name" => "AutoScalingGroupName", "Value" => {"Ref" => "AutoScaleGroup"}}])
+      expect(properties['Dimensions']).to eq([{"Name"=>"ClusterName", "Value"=>{"Ref"=>"EcsCluster"}}])
     end
 
     it 'has property AlarmActions' do
@@ -69,11 +69,11 @@ describe 'compiled component' do
     let(:properties) { resource['Properties'] }
 
     it 'has property MetricName' do
-      expect(properties['MetricName']).to eq('CPUReservation')
+      expect(properties['MetricName']).to eq('CPUUtilization')
     end
 
     it 'has property Namespace' do
-      expect(properties['Namespace']).to eq('AWS/EC2')
+      expect(properties['Namespace']).to eq('AWS/ECS')
     end
 
     it 'has property Statistic' do
@@ -81,15 +81,15 @@ describe 'compiled component' do
     end
 
     it 'has property Period' do
-      expect(properties['Period']).to eq('300')
+      expect(properties['Period']).to eq('60')
     end
 
     it 'has property EvaluationPeriods' do
-      expect(properties['EvaluationPeriods']).to eq('10')
+      expect(properties['EvaluationPeriods']).to eq('5')
     end
 
     it 'has property Threshold' do
-      expect(properties['Threshold']).to eq('40')
+      expect(properties['Threshold']).to eq('30')
     end
 
     it 'has property ComparisonOperator' do
@@ -97,7 +97,7 @@ describe 'compiled component' do
     end
 
     it 'has property Dimensions' do
-      expect(properties['Dimensions']).to eq([{"Name" => "AutoScalingGroupName", "Value" => {"Ref" => "AutoScaleGroup"}}])
+      expect(properties['Dimensions']).to eq([{"Name"=>"ClusterName", "Value"=>{"Ref"=>"EcsCluster"}}])
     end
 
     it 'has property AlarmActions' do
@@ -124,10 +124,10 @@ describe 'compiled component' do
       expect(properties['AutoScalingGroupName']).to eq({"Ref" => "AutoScaleGroup"})
     end
 
-    it 'has property Cooldown' do
-      expect(properties['Cooldown']).to eq('300')
+    it 'has property EstimatedInstanceWarmup' do
+      expect(properties['EstimatedInstanceWarmup']).to eq(120)
     end
-
+    
     it 'has property PolicyType' do
       expect(properties['PolicyType']).to eq('StepScaling')
     end
