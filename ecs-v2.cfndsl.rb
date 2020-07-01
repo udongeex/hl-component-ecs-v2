@@ -29,6 +29,8 @@ CloudFormation do
     
     Condition(:SpotEnabled, FnEquals(Ref(:Spot), 'true'))
     Condition(:KeyPairSet, FnNot(FnEquals(Ref(:KeyPair), '')))
+    Condition(:IsScalingEnabled, FnEquals(Ref(:EnableScaling), 'true'))
+    Condition(:IsTargetTrackingScalingEnabled, FnEquals(Ref(:EnableTargetTrackingScaling), 'true')) 
     
     ip_blocks = external_parameters.fetch(:ip_blocks, {})
     security_group_rules = external_parameters.fetch(:security_group_rules, [])
@@ -261,6 +263,80 @@ CloudFormation do
       NotificationTargetARN Ref(:DrainECSHookTopic)
       RoleARN FnGetAtt(:DrainECSHookTopicRole, :Arn)
     }
+
+    asg_scaling = external_parameters.fetch(:asg_scaling, {})
+    scale_up = asg_scaling.fetch('up', {})
+    scale_down = asg_scaling.fetch('down', {})
+    asg_dimensions = [{Name: 'AutoScalingGroupName', Value: Ref('AutoScaleGroup')}]
+  
+    CloudWatch_Alarm(:ScaleUpAlarm) {
+      Condition 'IsScalingEnabled'
+      AlarmDescription FnSub(scale_up.fetch(:desc, "${EnvironmentName #{component_name} scale up alarm"))
+      MetricName scale_up.fetch(:metric_name, 'CPUReservation')
+      Namespace scale_up.fetch(:namespace, 'AWS/EC2')
+      Statistic scale_up.fetch(:statistic, 'Average')
+      Period scale_up.fetch(:cooldown, '60').to_s
+      EvaluationPeriods scale_up.fetch(:evaluation_periods, '5').to_s
+      Threshold scale_up.fetch(:threshold, '70').to_s
+      AlarmActions [Ref(:ScaleUpPolicy)]
+      ComparisonOperator scale_up.fetch(:operator, 'GreaterThanThreshold')
+      Dimensions scale_up.fetch(:dimensions, asg_dimensions)
+    }
+  
+    CloudWatch_Alarm(:ScaleDownAlarm) {
+      Condition 'IsScalingEnabled'
+      AlarmDescription FnSub(scale_down.fetch(:desc, "${EnvironmentName #{component_name} scale down alarm"))
+      MetricName scale_down.fetch(:metric_name, 'CPUReservation')
+      Namespace scale_down.fetch(:namespace, 'AWS/EC2')
+      Statistic scale_down.fetch(:statistic, 'Average')
+      Period scale_down.fetch(:cooldown, '300').to_s
+      EvaluationPeriods scale_down.fetch(:evaluation_periods, '10').to_s
+      Threshold scale_down.fetch(:threshold, '40').to_s
+      AlarmActions [Ref(:ScaleDownPolicy)]
+      ComparisonOperator scale_down.fetch(:operator, 'LessThanThreshold')
+      Dimensions scale_down.fetch(:dimensions, asg_dimensions)
+    }
+  
+    step_up_scaling = scale_up.fetch('step_adjustments', [])
+  
+    AutoScaling_ScalingPolicy(:ScaleUpPolicy) {
+      Condition 'IsScalingEnabled'
+      AdjustmentType scale_up.fetch(:adjustment_type, 'ChangeInCapacity')
+      AutoScalingGroupName Ref('AutoScaleGroup')
+      Cooldown '300'
+      if step_up_scaling.any?
+        PolicyType 'StepScaling'
+        StepAdjustments step_up_scaling
+      else
+        ScalingAdjustment scale_up.fetch(:adjustment, 1)
+      end
+    }
+  
+    step_down_scaling = scale_down.fetch('step_adjustments', [])
+  
+    AutoScaling_ScalingPolicy(:ScaleDownPolicy) {
+      Condition 'IsScalingEnabled'
+      AdjustmentType 'ChangeInCapacity'
+      AutoScalingGroupName Ref('AutoScaleGroup')
+      Cooldown '300'
+      if step_down_scaling.any?
+        PolicyType 'StepScaling'
+        StepAdjustments step_down_scaling
+      else
+        ScalingAdjustment scale_down.fetch(:adjustment, -1)
+      end
+    }
+  
+    target_tracking = external_parameters.fetch(:target_tracking, {})
+  
+    target_tracking.each do |name,config|
+      AutoScaling_ScalingPolicy(name) {
+        Condition 'IsTargetTrackingScalingEnabled'
+        AutoScalingGroupName Ref('AutoScaleGroup')
+        PolicyType 'TargetTrackingScaling'
+        TargetTrackingConfiguration config
+      }
+    end        
     
   end
   
