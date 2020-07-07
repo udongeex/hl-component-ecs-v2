@@ -33,6 +33,9 @@ CfhighlanderTemplate do
       ComponentParam 'AsgDesired', '1'
       ComponentParam 'AsgMin', '1'
       ComponentParam 'AsgMax', '2'  
+
+      ComponentParam 'EnableScaling', 'false', allowedValues: ['true','false']
+      ComponentParam 'EnableTargetTrackingScaling', 'false', allowedValues: ['true','false']
     end
     
   end
