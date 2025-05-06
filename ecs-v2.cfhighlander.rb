@@ -36,6 +36,8 @@ CfhighlanderTemplate do
 
       ComponentParam 'EnableScaling', 'false', allowedValues: ['true','false']
       ComponentParam 'EnableTargetTrackingScaling', 'false', allowedValues: ['true','false']
+      ComponentParam 'volumes', '[]',
+        description: 'CloudFormation BlockDeviceMappings to attach extra EBS disks'
     end
     
   end
