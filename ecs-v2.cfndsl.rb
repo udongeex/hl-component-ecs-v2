@@ -222,7 +222,7 @@ CloudFormation do
         LAMBDA
       })
       Role FnGetAtt(:DrainECSHookFunctionRole, :Arn)
-      Runtime 'python3.7'
+      Runtime 'python3.8'
       Environment({
         Variables: {
           CLUSTER: Ref(:EcsCluster)
